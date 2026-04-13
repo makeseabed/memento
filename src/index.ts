@@ -19,11 +19,11 @@ export default definePluginEntry({
         value && typeof value === "object" && !Array.isArray(value)
           ? (value as Record<string, unknown>)
           : {};
-      return resolveConfig(raw);
+      return resolveConfig(raw, process.env);
     },
   },
   register(api: OpenClawPluginApi) {
-    const config = resolveConfig(api.pluginConfig);
+    const config = resolveConfig(api.pluginConfig, process.env);
 
     const workspaceDir = api.runtime.agent.resolveAgentWorkspaceDir(api.config, "main");
     const { backupDir } = resolveMementoPaths(workspaceDir, "main", { scope: "shared" });

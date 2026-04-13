@@ -123,7 +123,9 @@ export function toBool(v: unknown): boolean | undefined {
 
 // ── resolveConfig ──────────────────────────────────────────────────────────
 
-export function resolveConfig(raw: unknown, env: NodeJS.ProcessEnv = process.env): ResolvedMementoConfig {
+export type MementoEnv = Readonly<Record<string, string | undefined>>;
+
+export function resolveConfig(raw: unknown, env: MementoEnv = {}): ResolvedMementoConfig {
   const c = ((raw ?? {}) as MementoRawConfig);
   const d = DEFAULTS;
   const sharedModel = toStr(env.MEMENTO_MODEL) ?? c.model ?? d.model;
