@@ -1,0 +1,68 @@
+{
+  "id": "memento",
+  "name": "Memento",
+  "description": "Observational memory for OpenClaw.",
+  "version": "0.1.0",
+  "kind": "memory",
+  "uiHints": {
+    "model": {
+      "label": "Default Model",
+      "help": "Shared model for both observer and reflector unless a component-specific model override is set"
+    },
+    "observer.model": {
+      "label": "Observer Model Override",
+      "help": "Optional observer-specific model override"
+    },
+    "reflector.model": {
+      "label": "Reflector Model Override",
+      "help": "Optional reflector-specific model override"
+    },
+    "reflector.triggerWordThreshold": {
+      "label": "Reflector Trigger Threshold (words)",
+      "help": "Word count in observations.md that triggers the reflector to consolidate"
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "model": { "type": "string" },
+      "observer": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "maxSessions": { "type": "number", "minimum": 1, "maximum": 50 },
+          "maxLinesPerTranscript": { "type": "number", "minimum": 10 },
+          "existingObservationsContext": { "type": "number", "minimum": 0 },
+          "model": { "type": "string" }
+        }
+      },
+      "watcher": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "turnThreshold": { "type": "number", "minimum": 1 }
+        }
+      },
+      "reflector": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "triggerWordThreshold": { "type": "number", "minimum": 100 },
+          "backupRetentionCount": { "type": "number", "minimum": 1, "maximum": 50 },
+          "model": { "type": "string" }
+        }
+      },
+      "memoryFlush": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "flushLookbackHours": { "type": "number", "minimum": 1 },
+          "recoverLookbackHours": { "type": "number", "minimum": 1 },
+          "skipDedup": { "type": "boolean" }
+        }
+      },
+      "logging": { "type": "boolean" }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "name": "@makeseabed/memento",
+  "version": "0.1.0",
+  "description": "Observational memory for OpenClaw.",
+  "main": "./dist/index.js",
+  "author": "Lenny <lenny@seabed.to>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/makeseabed/memento.git"
+  },
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "memory",
+    "episodic-memory",
+    "memory-system"
+  ],
+  "type": "module",
+  "openclaw": {
+    "kind": "memory",
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "scripts": {
+    "test": "vitest run",
+    "build": "rm -rf dist && esbuild src/index.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.js --external:openclaw --minify-whitespace",
+    "prepublishOnly": "pnpm run build && pnpm test"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.0.0"
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  }
+}
