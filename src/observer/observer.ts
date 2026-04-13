@@ -204,7 +204,7 @@ export async function runObserver(api: OpenClawPluginApi, config: ResolvedMement
     }
 
     if (!wroteAny) {
-      await appendLog(sharedPaths.logPath, `${triggerTag} OBSERVER_NO_ADDITIONS: all observations were duplicates (post-LLM dedup)`, config.logging);
+      await appendLog(sharedPaths.logPath, `${triggerTag} OBSERVER_NO_ADDITIONS: all observations were duplicates (after-LLM dedup)`, config.logging);
       if (hashForState && compositeKeyForState) {
         observerState[compositeKeyForState] = hashForState;
         await writeObserverState(sharedPaths.observerStatePath, observerState);

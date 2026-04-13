@@ -9,6 +9,9 @@ import { registerHooks } from "./hooks.js";
 import { registerContextEngine } from "./context-engine.js";
 import { logStartupBannerOnce } from "./utils/startup-banner.js";
 
+// Capture env overrides once at module load, before any API interactions.
+const _env: Record<string, string | undefined> = { ...process.env };
+
 export default definePluginEntry({
   id: "memento",
   name: "Memento",
@@ -19,11 +22,11 @@ export default definePluginEntry({
         value && typeof value === "object" && !Array.isArray(value)
           ? (value as Record<string, unknown>)
           : {};
-      return resolveConfig(raw, process.env);
+      return resolveConfig(raw, _env);
     },
   },
   register(api: OpenClawPluginApi) {
-    const config = resolveConfig(api.pluginConfig, process.env);
+    const config = resolveConfig(api.pluginConfig, _env);
 
     const workspaceDir = api.runtime.agent.resolveAgentWorkspaceDir(api.config, "main");
     const { backupDir } = resolveMementoPaths(workspaceDir, "main", { scope: "shared" });
