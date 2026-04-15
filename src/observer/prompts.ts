@@ -33,6 +33,16 @@ The dc:date is the date the observation REFERS TO (which may differ from today i
 - Never output dc:scope=session without dc:session
 - Never output dc:session without dc:scope=session
 
+### Type-based scope defaults
+The guiding question for shared scope: **"Would this fact be useful in a completely different conversation on a different day?"** — not "is this important?"
+Apply these type-based defaults before falling back to the general session preference:
+- dc:type=rule → lean shared (cross-session rules and hard constraints are almost always durable and context-independent)
+- dc:type=preference → lean shared (user preferences apply across all future conversations by definition)
+- dc:type=habit → lean shared (recurring patterns are inherently cross-session)
+- dc:type=goal → shared unless the goal is explicitly short-term, task-local, or tied only to this conversation
+- dc:type=decision with dc:importance ≥ 7 → lean shared unless the decision is clearly conversation-local (e.g. "let's try X in this thread")
+For all other types (fact, event, context), the default remains session. Use shared only if the fact clearly passes the guiding question above.
+
 ## Metadata Tags (MANDATORY on every bullet line)
 
 ### Types (dc:type) — choose the most specific match:
