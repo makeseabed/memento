@@ -40,7 +40,7 @@ Apply these type-based defaults before falling back to the general session prefe
 - dc:type=preference → lean shared (user preferences apply across all future conversations by definition)
 - dc:type=habit → lean shared (recurring patterns are inherently cross-session)
 - dc:type=goal → shared unless the goal is explicitly short-term, task-local, or tied only to this conversation
-- dc:type=decision with dc:importance ≥ 7 → lean shared unless the decision is clearly conversation-local (e.g. "let's try X in this thread")
+- dc:type=decision with dc:importance ≥ 8 → lean shared unless the decision is clearly conversation-local (e.g. "let's try X in this thread")
 For all other types (fact, event, context), the default remains session. Use shared only if the fact clearly passes the guiding question above.
 
 ## Metadata Tags (MANDATORY on every bullet line)
