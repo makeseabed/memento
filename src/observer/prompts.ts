@@ -39,9 +39,10 @@ Apply these type-based defaults before falling back to the general session prefe
 - dc:type=rule → lean shared (cross-session rules and hard constraints are almost always durable and context-independent)
 - dc:type=preference → lean shared (user preferences apply across all future conversations by definition)
 - dc:type=habit → lean shared (recurring patterns are inherently cross-session)
-- dc:type=goal → shared unless the goal is explicitly short-term, task-local, or tied only to this conversation
-- dc:type=decision with dc:importance ≥ 8 → lean shared unless the decision is clearly conversation-local (e.g. "let's try X in this thread")
-For all other types (fact, event, context), the default remains session. Use shared only if the fact clearly passes the guiding question above.
+- dc:type=goal → shared only if the goal is personal or operational in nature (e.g. "publish Memento as open source"). Project milestones, feature goals, and task-local next steps are session-scoped regardless of importance.
+- dc:type=decision with dc:importance ≥ 8 → lean shared only if the decision is about how the agent, user, or workflow operates in general. Decisions about a specific project, feature, schema, or task are session-scoped regardless of importance.
+- dc:type=event → session by default. Only mark shared if the event is a significant operational milestone that would be meaningful context in any future conversation (e.g. "Memento published to npm"). Project events, deployments, bug fixes, and implementation progress are session-scoped.
+For all other types (fact, context), the default remains session. Use shared only if the fact clearly passes the guiding question above.
 
 ## Metadata Tags (MANDATORY on every bullet line)
 
