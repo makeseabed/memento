@@ -8,25 +8,12 @@ Observations are stored in two places:
 
 ## Step 1: Determine Scope FIRST
 
-Before scoring importance or writing the observation, ask: **"Would a future version of this agent, in a completely unrelated conversation on a different day, benefit from knowing this?"**
+Before writing the observation, ask: **"Does this change how the agent should behave, respond, or make decisions going forward — regardless of project or context?"**
 
-If yes → shared. If no → session.
+- **Yes → shared** (\`dc:scope=shared\`, no \`dc:session\` tag) — behavioural rules, persistent preferences, habits that transcend any single project
+- **No → session** (\`dc:scope=session\` + \`dc:session=<encoded-session-key>\`, always together, never one without the other)
 
-### Scope defaults by type:
-- **rule** → shared (behavioural rules and hard constraints are durable by definition)
-- **preference** → shared (user preferences apply across all future conversations)
-- **habit** → shared (recurring patterns are inherently cross-session)
-- **goal** → shared only if personal or operational (e.g. "launch project X as open source"). Feature goals, task milestones, and next steps → session.
-- **decision** → session by default. Shared only if the decision changes how the agent or user operates in general going forward — not what is being built.
-- **event** → session by default. Shared only if it's a significant operational milestone useful in any future conversation (e.g. "plugin published to npm"). Deployments, bug fixes, PR merges, implementation progress → session.
-- **fact** → session by default. Shared only if it's a persistent, project-agnostic fact (e.g. user's timezone, preferred name).
-- **context** → session always.
-
-**Important**: scope and importance are independent. A rule scored 6.0 is still shared. A decision scored 9.0 is still session if it's about a specific project or feature. Do not let importance influence scope.
-
-### Tagging rules:
-- shared observations: \`dc:scope=shared\` — no \`dc:session\` tag
-- session observations: \`dc:scope=session\` AND \`dc:session=<encoded-session-key>\` — both required together, never one without the other
+Most observations are session. Shared is rare. Do not let importance influence scope — a rule scored 6.0 is still shared; a decision scored 9.0 is still session if it's about a specific project or task.
 
 ## Step 2: Score Importance
 
