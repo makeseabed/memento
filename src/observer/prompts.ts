@@ -7,8 +7,10 @@ Each observation line MUST end with a metadata tag in this exact format:
 
 Date: YYYY-MM-DD
 - 🔴 HH:MM Observation text <!-- dc:type=rule dc:importance=8.5 dc:date=YYYY-MM-DD -->
-  - 🟡 HH:MM Related detail <!-- dc:type=fact dc:importance=4.0 dc:date=YYYY-MM-DD -->
+  - 🔴 HH:MM Related critical detail <!-- dc:type=fact dc:importance=7.0 dc:date=YYYY-MM-DD -->
+  - 🟡 HH:MM Related detail <!-- dc:type=context dc:importance=4.0 dc:date=YYYY-MM-DD -->
 - 🟡 HH:MM Observation text <!-- dc:type=event dc:importance=3.5 dc:date=YYYY-MM-DD -->
+- 🟢 HH:MM Low-priority informational note <!-- dc:type=context dc:importance=1.0 dc:date=YYYY-MM-DD -->
 
 The dc:date is the date the observation REFERS TO (which may differ from today if discussing past or future events).
 
@@ -31,35 +33,45 @@ Do not invent new type values. If unsure, use context.
 - 7-8: project milestones, deadlines, user preferences, significant bugs, career decisions
 - 5-6: technical decisions, completed tasks, meaningful context, follow-up items
 - 3-4: routine task completions, minor technical details, general context
-- 1-2: cron job runs, routine confirmations, informational noise, script executions
-- 0: should probably not have been recorded at all; consider omitting entirely
+- 1-2: cron job runs, routine confirmations, informational noise, script executions, preflight checks, token refreshes, auto-update runs, briefing dispatches
+- 0: should probably not have been recorded at all, consider omitting it entirely
 
 ### Scoring guide
 - Score HARD. Most observations should land at 1-4. Only genuinely important items deserve 5+.
-- Automated, cron, or scheduled actions are ALWAYS 1-2. No exceptions.
+- Automated, cron, or scheduled actions are ALWAYS 1-2. No exceptions. These are operational noise.
 - User decisions score higher than routine assistant actions.
-- Assistant actions with external consequences (publishing, sending, deploying, deleting) score as equivalent to user decisions.
-- Financial info scores 7+. Family wellbeing, health emergencies score 8+. Errors/bugs affecting the user score 6+.
-- Emoji priority aligns with score: 🔴 = 6-10, 🟡 = 3-6, 🟢 = 0-3.
+- Assistant actions with external consequences, like publishing, sending, deploying, or deleting, score as equivalent to user decisions.
+- Financial info scores 7+.
+- Family wellbeing, health emergencies, and emotional events score 8+.
+- Family-related info scores 7+.
+- Errors or bugs that affect the user score 6+.
+- Routine cron completions score 1-2.
+- The emoji priority should broadly align with the score bands: 🔴 = 6-10, 🟡 = 3-6, 🟢 = 0-3.
+- Do not ignore 🟢 items. Use them for low-stakes but still useful context that may help later, as long as it clears the include rules below.
 
 ## Temporal Anchoring
-When a message references a future or past date, include both the absolute date (e.g. 2026-02-14 Friday) and the relative offset (e.g. 3 days from today).
+When a message references a future or past date, include BOTH when known:
+- the absolute date, for example 2026-02-14 (Friday)
+- the relative offset, for example 3 days from today
 
 ## Temporal Context Awareness
-Consider when things were said. Include temporal context (time of day, day of week, gaps) only when it genuinely adds meaning.
+Consider when things were said, not just what was said. Include temporal context when it adds meaning, like time of day, day of week, or conversation gaps.
+Use dc:date for the date the observation refers to, not automatically today's date.
 
 ## Deduplication (CRITICAL — ZERO TOLERANCE)
 - If "Already Recorded" observations are provided, DO NOT repeat any of them, not even rephrased.
 - Same event with different wording = duplicate. Skip it.
 - When in doubt, it is a duplicate. Skip it.
+- Prefer updating with the newest meaningful delta instead of restating the same fact.
 - If all events were already recorded, output: NO_OBSERVATIONS
 
 ## Include / Skip Rules
-- Include: user messages, explicit decisions, tasks completed, errors, blockers, promises, deadlines, things learned, durable facts.
+- Include: user messages, explicit decisions, tasks completed, errors encountered, blockers, promises, deadlines, things learned, and durable facts.
 - Include: assistant actions only when they changed the outside world or materially changed project state.
-- Skip: heartbeat polls, HEARTBEAT_OK, cron chatter, NO_REPLY, observer/reflector self-output, system noise.
-- Skip: quoted historical content unless the current conversation adds a new fact, decision, or state change.
-- Skip: trivial assistant acknowledgements, filler, process narration without outcome.
+- Include: low-priority 🟢 notes when they are still genuinely useful context, not because they merely happened.
+- Skip: heartbeat polls, HEARTBEAT_OK responses, cron job internal chatter, NO_REPLY messages, observer or reflector self-output, and other system noise.
+- Skip: quoted or repeated historical content unless the current conversation adds a new fact, decision, or state change.
+- Skip: trivial assistant acknowledgements, filler, and process narration without outcome.
 
 ## Guidelines
 - Be DENSE. Every word should carry information.
