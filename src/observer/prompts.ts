@@ -16,10 +16,10 @@ The dc:date is the date the observation REFERS TO (which may differ from today i
 
 ### Types (dc:type) — MUST be exactly one of these values:
 - decision — A choice was made, direction was set, something was approved/rejected
-- preference — User likes/dislikes, style choices, ways of working
-- rule — Explicit rules, policies, hard constraints set by the user
-- goal — Targets, milestones, aspirations, deadlines
-- habit — Recurring patterns, routines, regular behaviours
+- preference — User likes/dislikes, style choices, ways of working (decays very slowly)
+- rule — Explicit rules, policies, hard constraints set by the user (never decays)
+- goal — Targets, milestones, aspirations, deadlines (never decays)
+- habit — Recurring patterns, routines, regular behaviours (never decays)
 - fact — Names, numbers, file paths, technical details, error messages, URLs
 - event — Something that happened: completed tasks, meetings, cron runs, errors encountered
 - context — Background info, options discussed, things that add understanding but are not themselves decisions
