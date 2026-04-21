@@ -13,7 +13,7 @@ function makeMockApi(opts: {
   assistantResponse?: string;
   subagentError?: Error;
 }): OpenClawPluginApi {
-  const response = opts.assistantResponse ?? `Date: 2026-04-01\n- 🔴 Test observation <!-- dc:type=decision dc:importance=7.0 dc:date=2026-04-01 -->`;
+  const response = opts.assistantResponse ?? `Date: 2026-04-01\n- 🔴 Test observation <!-- dc:type=rule dc:importance=7.0 dc:date=2026-04-01 -->`;
 
   const subagentRun = opts.subagentError
     ? vi.fn().mockRejectedValue(opts.subagentError)
@@ -201,8 +201,8 @@ describe("runObserver", () => {
 
     const response = [
       "Date: 2026-04-01",
-      "- 🔴 Shared observation <!-- dc:type=decision dc:importance=7.0 dc:date=2026-04-01 dc:scope=shared -->",
-      "- 🟡 Session observation <!-- dc:type=context dc:importance=3.0 dc:date=2026-04-01 dc:scope=session dc:session=user%3Achat%3Amain -->",
+      "- 🔴 Shared observation <!-- dc:type=rule dc:importance=7.0 dc:date=2026-04-01 -->",
+      "- 🟡 Session observation <!-- dc:type=context dc:importance=3.0 dc:date=2026-04-01 -->",
     ].join("\n");
     const api = makeMockApi({ workspaceDir, sessionsDir, assistantResponse: response });
 
@@ -227,7 +227,7 @@ describe("runObserver", () => {
 
     const response = [
       "Date: 2026-04-01",
-      "- 🟡 Session observation missing scope <!-- dc:type=context dc:importance=3.0 dc:date=2026-04-01 dc:session=user%3Achat%3Amain -->",
+      "- 🟡 Session observation missing scope <!-- dc:type=context dc:importance=3.0 dc:date=2026-04-01 -->",
     ].join("\n");
     const api = makeMockApi({ workspaceDir, sessionsDir, assistantResponse: response });
 
@@ -251,7 +251,7 @@ describe("runObserver", () => {
 
     const response = [
       "Date: 2026-04-01",
-      "- 🟡 Recovery note <!-- dc:type=context dc:importance=3.0 dc:date=2026-04-01 dc:session=__unresolved_recovery_session__ -->",
+      "- 🟡 Recovery note <!-- dc:type=rule dc:importance=7.0 dc:date=2026-04-01 -->",
     ].join("\n");
     const api = makeMockApi({ workspaceDir, sessionsDir, assistantResponse: response });
 
