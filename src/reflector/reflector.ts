@@ -99,7 +99,9 @@ export async function runReflector(
 
   const today = new Date().toISOString().split("T")[0];
   const header = `# Observations Log\n\nLast reflection: ${today}\n\n---\n\n`;
-  await writeFile(observationsPath, header + reflected + "\n", "utf8");
+  // Strip any leading header block the model may have emitted (title lines, "Last reflection", dividers)
+  const strippedReflected = reflected.replace(/^(#[^\n]*\n+|Last reflection:[^\n]*\n+|---\n+)+/, "").trimStart();
+  await writeFile(observationsPath, header + strippedReflected + "\n", "utf8");
   const reduction = Math.round(((inputWords - outputWords) / inputWords) * 100);
   await appendLog(logPath, `[reflector] REFLECTED: ${inputWords} → ${outputWords} words (${reduction}% reduction)`, config.logging);
   return { status: "reflected", inputWords, outputWords, backupPath };
