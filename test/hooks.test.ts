@@ -127,7 +127,7 @@ describe("registerHooks", () => {
     expect(runObserverMock).toHaveBeenCalledWith(
       api,
       { ...DEFAULTS, watcher: { turnThreshold: 2 }, logging: true },
-      { agentId: "main", sessionKey: "agent:main:discord:channel:1", triggerTag: "[watcher]" }
+      { agentId: "main", triggerTag: "[watcher]" }
     );
     expect(appendLogMock).toHaveBeenNthCalledWith(
       1,
@@ -200,7 +200,7 @@ describe("registerHooks", () => {
     expect(runObserverMock).toHaveBeenCalledWith(
       api,
       { ...DEFAULTS, watcher: { turnThreshold: 2 }, logging: true },
-      { agentId: "other", sessionKey: "agent:other:discord:channel:2", triggerTag: "[watcher]" }
+      { agentId: "other", triggerTag: "[watcher]" }
     );
   });
 

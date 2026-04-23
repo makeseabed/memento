@@ -37,13 +37,11 @@ async function triggerWatcherObserver(
   api: OpenClawPluginApi,
   config: ResolvedMementoConfig,
   agentId: string,
-  logPath: string,
-  sessionKey?: string
+  logPath: string
 ): Promise<void> {
   try {
     const result = await runObserver(api, config, {
       agentId,
-      sessionKey,
       triggerTag: "[watcher]",
     });
     await appendLog(
@@ -114,7 +112,7 @@ export function registerHooks(api: OpenClawPluginApi, config: ResolvedMementoCon
     const { logPath } = resolveMementoPaths(workspaceDir, agentId, { scope: "shared" });
     void appendLog(logPath, `[watcher] transcript watcher triggered observer (${config.watcher.turnThreshold} replies)`, config.logging);
 
-    void triggerWatcherObserver(api, config, agentId, logPath, update.sessionKey);
+    void triggerWatcherObserver(api, config, agentId, logPath);
   });
 
   // Layer 4: Session recovery hook
