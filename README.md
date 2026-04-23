@@ -37,7 +37,7 @@ All config is optional. If omitted, Memento uses built-in defaults.
     "existingObservationsContext": 40
   },
   "watcher": {
-    "turnThreshold": 10
+    "turnThreshold": 20
   },
   "reflector": {
     "triggerWordThreshold": 8000,
@@ -59,7 +59,7 @@ All config is optional. If omitted, Memento uses built-in defaults.
 - `observer.maxLinesPerTranscript`: transcript lines to read per session
 - `observer.existingObservationsContext`: recent memory bullets used for dedup context
 - `observer.model`: observer-specific model override
-- `watcher.turnThreshold`: run observation after this many meaningful assistant replies written to the session transcript
+- `watcher.turnThreshold`: run observation after this many meaningful assistant replies written to the session transcript. After each run, the in-memory observation cache is invalidated so new shared and session observations are re-injected into the system prompt on the next turn.
 - `reflector.triggerWordThreshold`: consolidate when memory gets too long
 - `reflector.backupRetentionCount`: reflector backups to keep
 - `reflector.model`: reflector-specific model override

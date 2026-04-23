@@ -49,6 +49,7 @@ async function triggerWatcherObserver(
       `[watcher] complete — status=${result.status}, added=${result.observationsAdded}`,
       config.logging
     );
+    invalidateObservationPromptCache(agentId);
   } catch (err) {
     await appendLog(logPath, `[watcher] ERROR: observer run failed (${String(err)})`, config.logging);
   }
@@ -80,6 +81,7 @@ export function registerHooks(api: OpenClawPluginApi, config: ResolvedMementoCon
         `[memoryFlush] complete — status=${result.status}, added=${result.observationsAdded}`,
         config.logging
       );
+      invalidateObservationPromptCache(agentId);
     } catch (err) {
       await appendLog(logPath, `[memoryFlush] error: ${String(err)}`, config.logging);
     }
