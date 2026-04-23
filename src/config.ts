@@ -83,7 +83,7 @@ export const DEFAULTS: ResolvedMementoConfig = {
     model: undefined,
   },
   watcher: {
-    turnThreshold: 10,
+    turnThreshold: 20,
   },
   reflector: {
     triggerWordThreshold: 8000,
