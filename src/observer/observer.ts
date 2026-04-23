@@ -5,7 +5,7 @@ import type { ResolvedMementoConfig } from "../config.js";
 import { resolveMementoPaths, type ObservationStoreRef, encodeSessionStoreKey } from "../paths.js";
 import { resolveCurrentAgentId } from "../agent-context.js";
 import { appendLog } from "../utils/log.js";
-import { readRecentSessions, UNRESOLVED_RECOVERY_SESSION_KEY } from "./session-reader.js";
+import { readRecentSessions } from "./session-reader.js";
 import { checkPreLLMDedup, readObserverState, writeObserverState, buildExistingFingerprints, deduplicateObservations, type ObserverState } from "./dedup.js";
 import { OBSERVER_SYSTEM_PROMPT, buildObserverUserPrompt } from "./prompts.js";
 import { runReflector } from "../reflector/reflector.js";
@@ -77,19 +77,17 @@ async function callObserverModel(api: OpenClawPluginApi, systemPrompt: string, u
   });
 }
 
-function parseStoreRef(line: string): ObservationStoreRef {
-  const scopeMatch = line.match(/dc:scope=(shared|session)\b/);
-  const sessionMatch = line.match(/dc:session=([^\s>]+)/);
-  const sessionKey = sessionMatch?.[1] ? decodeURIComponent(sessionMatch[1]) : undefined;
+const SHARED_TYPES = new Set(["rule", "preference", "habit"]);
 
-  const isSessionScoped = scopeMatch?.[1] === "session" || (!!sessionKey && !scopeMatch);
-  if (!isSessionScoped) return { scope: "shared" };
-  if (!sessionKey || sessionKey === UNRESOLVED_RECOVERY_SESSION_KEY) return { scope: "shared" };
-  return { scope: "session", sessionKey };
+function typeBasedStoreRef(line: string, defaultSessionKey: string): { shared: boolean; sessionKey: string } {
+  const typeMatch = line.match(/dc:type=(\w+)/);
+  const type = typeMatch?.[1] ?? "context";
+  return { shared: SHARED_TYPES.has(type), sessionKey: defaultSessionKey };
 }
 
-function splitObservationsByStore(output: string): Map<string, { store: ObservationStoreRef; content: string }> {
-  const buckets = new Map<string, { store: ObservationStoreRef; lines: string[] }>();
+function splitObservationsByStore(output: string, defaultSessionKey: string): Map<string, { store: ObservationStoreRef; content: string }> {
+  const sharedLines: string[] = [];
+  const sessionLines: string[] = [];
   let currentDateLine: string | undefined;
   for (const line of output.split("\n")) {
     if (/^Date:\s*\d{4}-\d{2}-\d{2}/.test(line.trim())) {
@@ -97,14 +95,19 @@ function splitObservationsByStore(output: string): Map<string, { store: Observat
       continue;
     }
     if (!BULLET_RE.test(line)) continue;
-    const store = parseStoreRef(line);
-    const key = store.scope === "shared" ? "shared" : `session:${encodeSessionStoreKey(store.sessionKey)}`;
-    const bucket = buckets.get(key) ?? { store, lines: [] };
-    if (currentDateLine && bucket.lines.at(-1) !== currentDateLine) bucket.lines.push(currentDateLine);
-    bucket.lines.push(line);
-    buckets.set(key, bucket);
+    const { shared } = typeBasedStoreRef(line, defaultSessionKey);
+    if (shared) {
+      if (currentDateLine && sharedLines.at(-1) !== currentDateLine) sharedLines.push(currentDateLine);
+      sharedLines.push(line);
+    } else {
+      if (currentDateLine && sessionLines.at(-1) !== currentDateLine) sessionLines.push(currentDateLine);
+      sessionLines.push(line);
+    }
   }
-  return new Map([...buckets.entries()].map(([key, value]) => [key, { store: value.store, content: value.lines.join("\n").trim() }]));
+  const result = new Map<string, { store: ObservationStoreRef; content: string }>();
+  if (sharedLines.length) result.set("shared", { store: { scope: "shared" }, content: sharedLines.join("\n").trim() });
+  if (sessionLines.length) result.set(`session:${encodeSessionStoreKey(defaultSessionKey)}`, { store: { scope: "session", sessionKey: defaultSessionKey }, content: sessionLines.join("\n").trim() });
+  return result;
 }
 
 function buildPromptContext(contexts: Array<{ label: string; content: string }>): string {
@@ -182,7 +185,8 @@ export async function runObserver(api: OpenClawPluginApi, config: ResolvedMement
       return { status: "no_observations", observationsAdded: 0, sessionsScanned: sessionFiles.length };
     }
 
-    const scoped = splitObservationsByStore(llmOutput);
+    const defaultSessionKey = sessionKeys[0] ?? encodeSessionStoreKey(agentId);
+    const scoped = splitObservationsByStore(llmOutput, defaultSessionKey);
     let totalBullets = 0;
     let wroteAny = false;
 
