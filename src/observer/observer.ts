@@ -21,6 +21,7 @@ const BULLET_RE = /^\s*-\s*[🔴🟡🟢]/u;
 
 export interface ObserverOpts {
   agentId?: string;
+  sessionKey?: string;
   flushMode?: boolean;
   recoverMode?: boolean;
   recoverSessionPath?: string;
@@ -115,7 +116,7 @@ function buildPromptContext(contexts: Array<{ label: string; content: string }>)
 }
 
 export async function runObserver(api: OpenClawPluginApi, config: ResolvedMementoConfig, opts: ObserverOpts = {}): Promise<ObserverResult> {
-  const { agentId: requestedAgentId, flushMode = false, recoverMode = false, recoverSessionPath, recoverSessionKey, triggerTag = "[cron]" } = opts;
+  const { agentId: requestedAgentId, sessionKey: requestedSessionKey, flushMode = false, recoverMode = false, recoverSessionPath, recoverSessionKey, triggerTag = "[cron]" } = opts;
   const agentId = requestedAgentId ?? resolveCurrentAgentId(api);
   const workspaceDir = api.runtime.agent.resolveAgentWorkspaceDir(api.config, agentId);
   const storePath = api.runtime.agent.session.resolveStorePath(undefined, { agentId });
@@ -185,7 +186,7 @@ export async function runObserver(api: OpenClawPluginApi, config: ResolvedMement
       return { status: "no_observations", observationsAdded: 0, sessionsScanned: sessionFiles.length };
     }
 
-    const defaultSessionKey = sessionKeys[0] ?? encodeSessionStoreKey(agentId);
+    const defaultSessionKey = requestedSessionKey ?? sessionKeys[0] ?? encodeSessionStoreKey(agentId);
     const scoped = splitObservationsByStore(llmOutput, defaultSessionKey);
     let totalBullets = 0;
     let wroteAny = false;
