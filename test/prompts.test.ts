@@ -7,6 +7,7 @@ describe("OBSERVER_SYSTEM_PROMPT", () => {
     expect(OBSERVER_SYSTEM_PROMPT).not.toContain("dc:scope=");
     expect(OBSERVER_SYSTEM_PROMPT).toContain("dc:session=session-key");
     expect(OBSERVER_SYSTEM_PROMPT).toContain("Use the exact session key from the `[session=...]` marker");
+    expect(OBSERVER_SYSTEM_PROMPT).not.toContain("even for shared observations");
     expect(OBSERVER_SYSTEM_PROMPT).toContain("dc:type=rule");
     expect(OBSERVER_SYSTEM_PROMPT).toContain("MUST be exactly one of these values");
     expect(OBSERVER_SYSTEM_PROMPT).toContain("Do not invent new type values");

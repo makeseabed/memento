@@ -18,7 +18,6 @@ The dc:date is the date the observation REFERS TO (which may differ from today i
 
 ### Session source (dc:session) — REQUIRED on every bullet line
 - Use the exact session key from the \`[session=...]\` marker on the source message.
-- Keep \`dc:session\` even for shared observations so the source session remains visible.
 - If a bullet summarizes messages from one session, use that session's key.
 - If a bullet combines multiple sessions, split it into separate bullets instead.
 
