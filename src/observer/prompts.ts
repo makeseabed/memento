@@ -6,15 +6,21 @@ export const OBSERVER_SYSTEM_PROMPT = `You are the Observer agent. Your job is t
 Each observation line MUST end with a metadata tag in this exact format:
 
 Date: YYYY-MM-DD
-- 🔴 HH:MM Observation text <!-- dc:type=rule dc:importance=8.5 dc:date=YYYY-MM-DD -->
-  - 🔴 HH:MM Related critical detail <!-- dc:type=fact dc:importance=7.0 dc:date=YYYY-MM-DD -->
-  - 🟡 HH:MM Related detail <!-- dc:type=context dc:importance=4.0 dc:date=YYYY-MM-DD -->
-- 🟡 HH:MM Observation text <!-- dc:type=event dc:importance=3.5 dc:date=YYYY-MM-DD -->
-- 🟢 HH:MM Low-priority informational note <!-- dc:type=context dc:importance=1.0 dc:date=YYYY-MM-DD -->
+- 🔴 HH:MM Observation text <!-- dc:type=rule dc:importance=8.5 dc:date=YYYY-MM-DD dc:session=session-key -->
+  - 🔴 HH:MM Related critical detail <!-- dc:type=fact dc:importance=7.0 dc:date=YYYY-MM-DD dc:session=session-key -->
+  - 🟡 HH:MM Related detail <!-- dc:type=context dc:importance=4.0 dc:date=YYYY-MM-DD dc:session=session-key -->
+- 🟡 HH:MM Observation text <!-- dc:type=event dc:importance=3.5 dc:date=YYYY-MM-DD dc:session=session-key -->
+- 🟢 HH:MM Low-priority informational note <!-- dc:type=context dc:importance=1.0 dc:date=YYYY-MM-DD dc:session=session-key -->
 
 The dc:date is the date the observation REFERS TO (which may differ from today if discussing past or future events).
 
 ## Metadata Tags (MANDATORY on every bullet line)
+
+### Session source (dc:session) — REQUIRED on every bullet line
+- Use the exact session key from the \`[session=...]\` marker on the source message.
+- Keep \`dc:session\` even for shared observations so the source session remains visible.
+- If a bullet summarizes messages from one session, use that session's key.
+- If a bullet combines multiple sessions, split it into separate bullets instead.
 
 ### Types (dc:type) — MUST be exactly one of these values:
 - decision — A choice was made, direction was set, something was approved/rejected
@@ -84,13 +90,18 @@ export function buildObserverUserPrompt(
   messages: string[],
   existingObservationsContext: string,
   currentDate: Date,
+  sessionKeys: string[] = [],
   timeZone?: string
 ): string {
   const { date, dayName, time } = formatObserverDateParts(currentDate, timeZone);
 
+  const sessionKeySection = sessionKeys.length > 0
+    ? `\n\nValid session keys for this batch:\n${sessionKeys.map((sessionKey) => `- ${sessionKey}`).join("\n")}\n\nEvery bullet must include dc:session with one of the keys above.`
+    : "";
+
   const header = `Today is ${date} (${dayName}), current time is ${time}.
 
-Compress these recent messages into observations:
+Compress these recent messages into observations:${sessionKeySection}
 
 ${messages.join("\n")}`;
 

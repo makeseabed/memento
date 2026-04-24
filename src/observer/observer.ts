@@ -5,7 +5,7 @@ import type { ResolvedMementoConfig } from "../config.js";
 import { resolveMementoPaths, type ObservationStoreRef, encodeSessionStoreKey } from "../paths.js";
 import { resolveCurrentAgentId } from "../agent-context.js";
 import { appendLog } from "../utils/log.js";
-import { readRecentSessions } from "./session-reader.js";
+import { readRecentSessions, UNRESOLVED_RECOVERY_SESSION_KEY } from "./session-reader.js";
 import { checkPreLLMDedup, readObserverState, writeObserverState, buildExistingFingerprints, deduplicateObservations, type ObserverState } from "./dedup.js";
 import { OBSERVER_SYSTEM_PROMPT, buildObserverUserPrompt } from "./prompts.js";
 import { runReflector } from "../reflector/reflector.js";
@@ -79,15 +79,24 @@ async function callObserverModel(api: OpenClawPluginApi, systemPrompt: string, u
 
 const SHARED_TYPES = new Set(["rule", "preference", "habit"]);
 
-function typeBasedStoreRef(line: string, defaultSessionKey: string): { shared: boolean; sessionKey: string } {
+function parseObservationMetadata(line: string): { type: string; sessionKey?: string } {
   const typeMatch = line.match(/dc:type=(\w+)/);
-  const type = typeMatch?.[1] ?? "context";
-  return { shared: SHARED_TYPES.has(type), sessionKey: defaultSessionKey };
+  const sessionMatch = line.match(/dc:session=([^\s>]+)/);
+  return {
+    type: typeMatch?.[1] ?? "context",
+    sessionKey: sessionMatch?.[1] ? decodeURIComponent(sessionMatch[1]) : undefined,
+  };
+}
+
+function resolveStoreRef(line: string, defaultSessionKey: string): ObservationStoreRef {
+  const { type, sessionKey } = parseObservationMetadata(line);
+  if (SHARED_TYPES.has(type)) return { scope: "shared" };
+  if (sessionKey === UNRESOLVED_RECOVERY_SESSION_KEY) return { scope: "shared" };
+  return { scope: "session", sessionKey: sessionKey ?? defaultSessionKey };
 }
 
 function splitObservationsByStore(output: string, defaultSessionKey: string): Map<string, { store: ObservationStoreRef; content: string }> {
-  const sharedLines: string[] = [];
-  const sessionLines: string[] = [];
+  const buckets = new Map<string, { store: ObservationStoreRef; lines: string[] }>();
   let currentDateLine: string | undefined;
   for (const line of output.split("\n")) {
     if (/^Date:\s*\d{4}-\d{2}-\d{2}/.test(line.trim())) {
@@ -95,19 +104,18 @@ function splitObservationsByStore(output: string, defaultSessionKey: string): Ma
       continue;
     }
     if (!BULLET_RE.test(line)) continue;
-    const { shared } = typeBasedStoreRef(line, defaultSessionKey);
-    if (shared) {
-      if (currentDateLine && sharedLines.at(-1) !== currentDateLine) sharedLines.push(currentDateLine);
-      sharedLines.push(line);
-    } else {
-      if (currentDateLine && sessionLines.at(-1) !== currentDateLine) sessionLines.push(currentDateLine);
-      sessionLines.push(line);
+    const store = resolveStoreRef(line, defaultSessionKey);
+    let key = "shared";
+    if (store.scope === "session") {
+      const sessionKey = store.sessionKey ?? defaultSessionKey;
+      key = `session:${encodeSessionStoreKey(sessionKey)}`;
     }
+    const bucket = buckets.get(key) ?? { store, lines: [] };
+    if (currentDateLine && bucket.lines.at(-1) !== currentDateLine) bucket.lines.push(currentDateLine);
+    bucket.lines.push(line);
+    buckets.set(key, bucket);
   }
-  const result = new Map<string, { store: ObservationStoreRef; content: string }>();
-  if (sharedLines.length) result.set("shared", { store: { scope: "shared" }, content: sharedLines.join("\n").trim() });
-  if (sessionLines.length) result.set(`session:${encodeSessionStoreKey(defaultSessionKey)}`, { store: { scope: "session", sessionKey: defaultSessionKey }, content: sessionLines.join("\n").trim() });
-  return result;
+  return new Map([...buckets.entries()].map(([key, value]) => [key, { store: value.store, content: value.lines.join("\n").trim() }]));
 }
 
 function buildPromptContext(contexts: Array<{ label: string; content: string }>): string {
@@ -165,7 +173,7 @@ export async function runObserver(api: OpenClawPluginApi, config: ResolvedMement
       const sessionPaths = resolveMementoPaths(workspaceDir, agentId, { scope: "session", sessionKey });
       contextSections.push({ label: `Session ${sessionKey}`, content: await getExistingObservationsContext(sessionPaths.observationsPath, config.observer.existingObservationsContext) });
     }
-    const userPrompt = buildObserverUserPrompt(messages, buildPromptContext(contextSections), new Date());
+    const userPrompt = buildObserverUserPrompt(messages, buildPromptContext(contextSections), new Date(), sessionKeys);
 
     let llmOutput: string;
     try {
