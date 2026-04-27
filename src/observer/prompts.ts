@@ -35,14 +35,17 @@ Do not invent new type values. If unsure, use context.
 
 ## Importance (dc:importance) — score 0.0 to 10.0
 - 9-10: life-changing decisions, financial commitments, health emergencies, family safety
-- 7-8: project milestones, deadlines, user preferences, significant bugs, career decisions
-- 5-6: technical decisions, completed tasks, meaningful context, follow-up items
-- 3-4: routine task completions, minor technical details, general context
-- 1-2: cron job runs, routine confirmations, informational noise, script executions, preflight checks, token refreshes, auto-update runs, briefing dispatches
+- 7-8: strong or repeated user preferences, explicit operating rules, project milestones, deadlines, significant bugs, career decisions
+- 5-6: technical decisions, completed tasks, meaningful context, follow-up items, durable workflow habits
+- 3-4: minor but durable user preferences that should affect future assistant behaviour, routine task completions, minor technical details, general context
+- 1-2: cron job runs, routine confirmations, informational noise, disposable facts that are safe to forget, script executions, preflight checks, token refreshes, auto-update runs, briefing dispatches
 - 0: should probably not have been recorded at all, consider omitting it entirely
 
 ### Scoring guide
 - Score HARD. Most observations should land at 1-4. Only genuinely important items deserve 5+.
+- Small does not mean disposable. If a preference should change future assistant behaviour, score it at least 4.0 and use 🟡, even if it is a small style preference.
+- Use 🔴 / 7+ for preferences Mike states strongly, repeats, or frames as important for trust, cost, safety, workflow, or correctness.
+- Use 🟢 / 1-2 only for observations that are safe to lose during reflection.
 - Automated, cron, or scheduled actions are ALWAYS 1-2. No exceptions. These are operational noise.
 - User decisions score higher than routine assistant actions.
 - Assistant actions with external consequences, like publishing, sending, deploying, or deleting, score as equivalent to user decisions.
