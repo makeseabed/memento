@@ -3,6 +3,7 @@ import { writeFile, mkdir, rm, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runObserver, shouldReflect } from "../src/observer/observer.js";
+import { UNRESOLVED_RECOVERY_SESSION_KEY } from "../src/observer/session-reader.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { DEFAULTS } from "../src/config.js";
 
@@ -13,7 +14,7 @@ function makeMockApi(opts: {
   assistantResponse?: string;
   subagentError?: Error;
 }): OpenClawPluginApi {
-  const response = opts.assistantResponse ?? `Date: 2026-04-01\n- 🔴 Test observation <!-- dc:type=rule dc:importance=7.0 dc:date=2026-04-01 -->`;
+  const response = opts.assistantResponse ?? `Date: 2026-04-01\n- 🔴 Test observation <!-- dc:type=rule dc:importance=7.0 dc:date=2026-04-01 dc:session=user:chat:main -->`;
 
   const subagentRun = opts.subagentError
     ? vi.fn().mockRejectedValue(opts.subagentError)
@@ -201,8 +202,8 @@ describe("runObserver", () => {
 
     const response = [
       "Date: 2026-04-01",
-      "- 🔴 Shared observation <!-- dc:type=rule dc:importance=7.0 dc:date=2026-04-01 -->",
-      "- 🟡 Session observation <!-- dc:type=context dc:importance=3.0 dc:date=2026-04-01 -->",
+      "- 🔴 Shared observation <!-- dc:type=rule dc:importance=7.0 dc:date=2026-04-01 dc:session=user:chat:main -->",
+      "- 🟡 Session observation <!-- dc:type=context dc:importance=3.0 dc:date=2026-04-01 dc:session=user:chat:main -->",
     ].join("\n");
     const api = makeMockApi({ workspaceDir, sessionsDir, assistantResponse: response });
 
@@ -218,7 +219,41 @@ describe("runObserver", () => {
     ).resolves.toContain("Session observation");
   });
 
-  it("routes session observations without dc:scope into session memory", async () => {
+  it("routes session observations to the tagged session when multiple sessions are scanned", async () => {
+    const mainLines = [
+      makeSessionEntry("user", "Main session message", 5),
+      makeSessionEntry("assistant", "Main session reply", 5),
+    ].join("\n");
+    const altLines = [
+      makeSessionEntry("user", "Alt session message", 4),
+      makeSessionEntry("assistant", "Alt session reply", 4),
+    ].join("\n");
+    await writeFile(join(sessionsDir, "main.jsonl"), mainLines, "utf8");
+    await writeFile(join(sessionsDir, "alt.jsonl"), altLines, "utf8");
+    await writeFile(
+      join(sessionsDir, "sessions.json"),
+      JSON.stringify({ "user:chat:main": { sessionId: "main" }, "user:chat:alt": { sessionId: "alt" } }),
+      "utf8"
+    );
+
+    const response = [
+      "Date: 2026-04-01",
+      "- 🟡 Alt session observation <!-- dc:type=context dc:importance=3.0 dc:date=2026-04-01 dc:session=user:chat:alt -->",
+    ].join("\n");
+    const api = makeMockApi({ workspaceDir, sessionsDir, assistantResponse: response });
+
+    const result = await runObserver(api, DEFAULTS);
+
+    expect(result.status).toBe("added");
+    await expect(
+      readFile(join(workspaceDir, "memento", "sessions", "user-chat-alt", "observations.md"), "utf8")
+    ).resolves.toContain("Alt session observation");
+    await expect(
+      readFile(join(workspaceDir, "memento", "sessions", "user-chat-main", "observations.md"), "utf8")
+    ).rejects.toThrow();
+  });
+
+  it("routes session observations with dc:session into session memory", async () => {
     const lines = [
       makeSessionEntry("user", "Keep this in the current chat only", 5),
       makeSessionEntry("assistant", "Understood", 5),
@@ -227,7 +262,7 @@ describe("runObserver", () => {
 
     const response = [
       "Date: 2026-04-01",
-      "- 🟡 Session observation missing scope <!-- dc:type=context dc:importance=3.0 dc:date=2026-04-01 -->",
+      "- 🟡 Session observation <!-- dc:type=context dc:importance=3.0 dc:date=2026-04-01 dc:session=user:chat:main -->",
     ].join("\n");
     const api = makeMockApi({ workspaceDir, sessionsDir, assistantResponse: response });
 
@@ -236,10 +271,31 @@ describe("runObserver", () => {
     expect(result.status).toBe("added");
     await expect(
       readFile(join(workspaceDir, "memento", "sessions", "user-chat-main", "observations.md"), "utf8")
-    ).resolves.toContain("Session observation missing scope");
+    ).resolves.toContain("Session observation");
     await expect(
       readFile(join(workspaceDir, "memento", "shared", "observations.md"), "utf8")
     ).rejects.toThrow();
+  });
+
+  it("keeps source session metadata on shared observations", async () => {
+    const lines = [
+      makeSessionEntry("user", "Remember my preference globally", 5),
+      makeSessionEntry("assistant", "Understood", 5),
+    ].join("\n");
+    await writeFile(join(sessionsDir, "main.jsonl"), lines, "utf8");
+
+    const response = [
+      "Date: 2026-04-01",
+      "- 🔴 Shared preference <!-- dc:type=preference dc:importance=7.0 dc:date=2026-04-01 dc:session=user:chat:main -->",
+    ].join("\n");
+    const api = makeMockApi({ workspaceDir, sessionsDir, assistantResponse: response });
+
+    const result = await runObserver(api, DEFAULTS);
+
+    expect(result.status).toBe("added");
+    await expect(
+      readFile(join(workspaceDir, "memento", "shared", "observations.md"), "utf8")
+    ).resolves.toContain("dc:session=user:chat:main");
   });
 
   it("routes unresolved recovery session observations into shared memory", async () => {
@@ -251,7 +307,7 @@ describe("runObserver", () => {
 
     const response = [
       "Date: 2026-04-01",
-      "- 🟡 Recovery note <!-- dc:type=rule dc:importance=7.0 dc:date=2026-04-01 -->",
+      `- 🟡 Recovery note <!-- dc:type=rule dc:importance=7.0 dc:date=2026-04-01 dc:session=${UNRESOLVED_RECOVERY_SESSION_KEY} -->`,
     ].join("\n");
     const api = makeMockApi({ workspaceDir, sessionsDir, assistantResponse: response });
 
