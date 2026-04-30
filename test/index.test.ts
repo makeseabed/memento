@@ -99,10 +99,11 @@ describe("mementoPlugin.register()", () => {
     expect(typeof registeredTools[0]!.factory).toBe("function");
   });
 
-  it("registers a memory prompt section builder", () => {
-    const { api, memorySectionBuilders } = buildMockApi();
+  it("registers a before_prompt_build hook for memory injection", () => {
+    const { api, memorySectionBuilders, onCalls } = buildMockApi();
     mementoPlugin.register(api);
-    expect(memorySectionBuilders.length).toBe(1);
+    expect(memorySectionBuilders.length).toBe(0);
+    expect(onCalls).toContain("before_prompt_build");
   });
 
   it("registers session and compaction hooks and transcript watcher subscriptions", () => {
