@@ -6,10 +6,13 @@ import { invalidateObservationPromptCache, registerContextEngine } from "../src/
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { DEFAULTS } from "../src/config.js";
 
-type MemoryPromptBuilder = (params: { availableTools: Set<string>; agentId?: string; sessionKey?: string }) => string[];
+type PromptHook = (
+  event: { prompt: string; messages: unknown[] },
+  ctx: { agentId?: string; sessionKey?: string }
+) => { appendSystemContext?: string } | void;
 
-function makeMockApi(workspaceDir: string): OpenClawPluginApi & { getBuilder(): MemoryPromptBuilder | undefined } {
-  let capturedBuilder: MemoryPromptBuilder | undefined;
+function makeMockApi(workspaceDir: string): OpenClawPluginApi & { getHook(): PromptHook | undefined } {
+  let capturedHook: PromptHook | undefined;
 
   const api = {
     config: {},
@@ -42,21 +45,25 @@ function makeMockApi(workspaceDir: string): OpenClawPluginApi & { getBuilder(): 
         onSessionTranscriptUpdate: () => undefined,
       },
     },
-    on: vi.fn(),
-    registerHook: vi.fn(),
-    registerMemoryPromptSection: vi.fn((builder: MemoryPromptBuilder) => {
-      capturedBuilder = builder;
+    on: vi.fn((hookName: string, handler: PromptHook) => {
+      if (hookName === "before_prompt_build") capturedHook = handler;
     }),
+    registerHook: vi.fn(),
+    registerMemoryPromptSection: vi.fn(),
     registerTool: vi.fn(),
-    getBuilder() {
-      return capturedBuilder;
+    getHook() {
+      return capturedHook;
     },
   };
 
-  return api as unknown as OpenClawPluginApi & { getBuilder(): MemoryPromptBuilder | undefined };
+  return api as unknown as OpenClawPluginApi & { getHook(): PromptHook | undefined };
 }
 
-const BASE_PARAMS = { availableTools: new Set<string>() };
+const BASE_EVENT = { prompt: "hello", messages: [] };
+
+function runHook(api: ReturnType<typeof makeMockApi>, ctx: { agentId?: string; sessionKey?: string } = {}): string | undefined {
+  return api.getHook()?.(BASE_EVENT, ctx)?.appendSystemContext;
+}
 
 describe("registerContextEngine", () => {
   let tmpDir: string;
@@ -73,22 +80,22 @@ describe("registerContextEngine", () => {
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it("registers a builder by default", () => {
+  it("registers a before_prompt_build hook by default", () => {
     const api = makeMockApi(tmpDir);
 
     registerContextEngine(api, DEFAULTS);
 
-    expect(api.registerMemoryPromptSection).toHaveBeenCalledOnce();
+    expect(api.on).toHaveBeenCalledWith("before_prompt_build", expect.any(Function));
+    expect(api.registerMemoryPromptSection).not.toHaveBeenCalled();
   });
 
   it("injects placeholder when observations.md does not exist", () => {
     const api = makeMockApi(tmpDir);
     registerContextEngine(api, DEFAULTS);
 
-    const builder = api.getBuilder()!;
-    const result = builder(BASE_PARAMS);
+    const result = runHook(api);
 
-    expect(result).toEqual(["<!-- Memento: no observations yet -->"]);
+    expect(result).toBe("<!-- Memento: no observations yet -->");
   });
 
   it("injects placeholder when observations.md is empty", async () => {
@@ -97,10 +104,9 @@ describe("registerContextEngine", () => {
     const api = makeMockApi(tmpDir);
     registerContextEngine(api, DEFAULTS);
 
-    const builder = api.getBuilder()!;
-    const result = builder(BASE_PARAMS);
+    const result = runHook(api);
 
-    expect(result).toEqual(["<!-- Memento: no observations yet -->"]);
+    expect(result).toBe("<!-- Memento: no observations yet -->");
   });
 
   it("wraps content in memento-observations tags when file exists", async () => {
@@ -110,14 +116,13 @@ describe("registerContextEngine", () => {
     const api = makeMockApi(tmpDir);
     registerContextEngine(api, DEFAULTS);
 
-    const builder = api.getBuilder()!;
-    const result = builder(BASE_PARAMS);
+    const result = runHook(api);
 
-    expect(result).toEqual([
+    expect(result).toBe([
       "<memento-observations>",
       `<shared-observations>\n${content}\n</shared-observations>`,
       "</memento-observations>",
-    ]);
+    ].join("\n"));
   });
 
   it("truncates content cleanly when file exceeds 50k token limit", async () => {
@@ -128,15 +133,15 @@ describe("registerContextEngine", () => {
     const api = makeMockApi(tmpDir);
     registerContextEngine(api, DEFAULTS);
 
-    const builder = api.getBuilder()!;
-    const result = builder(BASE_PARAMS);
+    const result = runHook(api)!;
+    const lines = result.split("\n");
 
     // Should be wrapped in tags
-    expect(result[0]).toBe("<memento-observations>");
-    expect(result[2]).toBe("</memento-observations>");
+    expect(lines[0]).toBe("<memento-observations>");
+    expect(lines.at(-1)).toBe("</memento-observations>");
 
     // Middle section is truncated at the combined payload boundary, so wrapper text may be cut.
-    const injected = result[1]!;
+    const injected = result.slice("<memento-observations>\n".length, -"\n</memento-observations>".length);
     expect(injected.startsWith("<shared-observations>\n")).toBe(true);
     expect(injected).toContain(bigContent.slice(0, 1024));
     // Should not include the full file
@@ -148,21 +153,19 @@ describe("registerContextEngine", () => {
     );
   });
 
-  it("caches the file read across multiple builder calls", async () => {
+  it("caches the file read across multiple hook calls", async () => {
     const content = "- 🔴 Important observation\n";
     await writeFile(join(tmpDir, "memento/shared/observations.md"), content, "utf8");
 
     const api = makeMockApi(tmpDir);
     registerContextEngine(api, DEFAULTS);
 
-    const builder = api.getBuilder()!;
-
-    const result1 = builder(BASE_PARAMS);
-    expect(result1[1]).toContain(content);
+    const result1 = runHook(api)!;
+    expect(result1).toContain(content);
 
     await rm(join(tmpDir, "memento/shared/observations.md"));
 
-    const result2 = builder(BASE_PARAMS);
+    const result2 = runHook(api);
     expect(result2).toEqual(result1);
   });
 
@@ -172,27 +175,26 @@ describe("registerContextEngine", () => {
     const api = makeMockApi(tmpDir);
     registerContextEngine(api, DEFAULTS);
 
-    const builder = api.getBuilder()!;
-    expect(builder(BASE_PARAMS)).toEqual([
+    expect(runHook(api)).toBe([
       "<memento-observations>",
       "<shared-observations>\n- 🔴 First\n\n</shared-observations>",
       "</memento-observations>",
-    ]);
+    ].join("\n"));
 
     await writeFile(join(tmpDir, "memento/shared/observations.md"), "- 🔴 Second\n", "utf8");
-    expect(builder(BASE_PARAMS)).toEqual([
+    expect(runHook(api)).toBe([
       "<memento-observations>",
       "<shared-observations>\n- 🔴 First\n\n</shared-observations>",
       "</memento-observations>",
-    ]);
+    ].join("\n"));
 
     invalidateObservationPromptCache();
 
-    expect(builder(BASE_PARAMS)).toEqual([
+    expect(runHook(api)).toBe([
       "<memento-observations>",
       "<shared-observations>\n- 🔴 Second\n\n</shared-observations>",
       "</memento-observations>",
-    ]);
+    ].join("\n"));
   });
 
   it("injects shared observations for every session and session observations only for the current session key", async () => {
@@ -206,20 +208,19 @@ describe("registerContextEngine", () => {
 
     const api = makeMockApi(tmpDir);
     registerContextEngine(api, DEFAULTS);
-    const builder = api.getBuilder()!;
 
     expect(
-      builder({ ...BASE_PARAMS, sessionKey: "agent:main:discord:channel:123" })
-    ).toEqual([
+      runHook(api, { sessionKey: "agent:main:discord:channel:123" })
+    ).toBe([
       "<memento-observations>",
       "<shared-observations>\n- 🔴 Shared fact\n\n</shared-observations>\n\n<session-observations>\n- 🟡 Session detail\n\n</session-observations>",
       "</memento-observations>",
-    ]);
+    ].join("\n"));
 
-    expect(builder({ ...BASE_PARAMS, sessionKey: "agent:main:discord:channel:999" })).toEqual([
+    expect(runHook(api, { sessionKey: "agent:main:discord:channel:999" })).toBe([
       "<memento-observations>",
       "<shared-observations>\n- 🔴 Shared fact\n\n</shared-observations>",
       "</memento-observations>",
-    ]);
+    ].join("\n"));
   });
 });

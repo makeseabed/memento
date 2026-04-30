@@ -21,28 +21,39 @@ function readObservationFile(path: string): string {
   try { return readFileSync(path, "utf8"); } catch { return ""; }
 }
 
+function buildObservationPromptSections(
+  api: OpenClawPluginApi,
+  context: { agentId?: string; sessionKey?: string }
+): string[] {
+  const agentId = resolveCurrentAgentId(api, context);
+  const sessionKey = resolveCurrentSessionKey(context);
+  const cacheKey = `${agentId}::${sessionKey ?? "shared"}`;
+  const cached = cachedObservationPromptSections.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const workspaceDir = api.runtime.agent.resolveAgentWorkspaceDir(api.config, agentId);
+  const sharedRaw = readObservationFile(resolveMementoPaths(workspaceDir, agentId, { scope: "shared" }).observationsPath);
+  const sessionRaw = sessionKey ? readObservationFile(resolveMementoPaths(workspaceDir, agentId, { scope: "session", sessionKey }).observationsPath) : "";
+  const combined = [sharedRaw.trim() ? `<shared-observations>\n${sharedRaw}\n</shared-observations>` : "", sessionRaw.trim() ? `<session-observations>\n${sessionRaw}\n</session-observations>` : ""].filter(Boolean).join("\n\n");
+
+  let section: string[];
+  if (!combined.trim()) section = ["<!-- Memento: no observations yet -->"];
+  else if (combined.length > MAX_CHARS) {
+    api.logger.warn("Memento: observations.md exceeds 50,000-token soft limit, injecting truncated version");
+    section = ["<memento-observations>", combined.slice(0, MAX_CHARS), "</memento-observations>"];
+  } else section = ["<memento-observations>", combined, "</memento-observations>"];
+
+  cachedObservationPromptSections.set(cacheKey, section);
+  return section;
+}
+
 export function registerContextEngine(api: OpenClawPluginApi, _config: ResolvedMementoConfig): void {
-  api.registerMemoryPromptSection((params) => {
-    const context = params as { agentId?: string; sessionKey?: string };
-    const agentId = resolveCurrentAgentId(api, context);
-    const sessionKey = resolveCurrentSessionKey(context);
-    const cacheKey = `${agentId}::${sessionKey ?? "shared"}`;
-    const cached = cachedObservationPromptSections.get(cacheKey);
-    if (cached !== undefined) return cached;
+  api.on("before_prompt_build", (_event, ctx) => {
+    const sections = buildObservationPromptSections(api, {
+      agentId: ctx.agentId,
+      sessionKey: ctx.sessionKey,
+    });
 
-    const workspaceDir = api.runtime.agent.resolveAgentWorkspaceDir(api.config, agentId);
-    const sharedRaw = readObservationFile(resolveMementoPaths(workspaceDir, agentId, { scope: "shared" }).observationsPath);
-    const sessionRaw = sessionKey ? readObservationFile(resolveMementoPaths(workspaceDir, agentId, { scope: "session", sessionKey }).observationsPath) : "";
-    const combined = [sharedRaw.trim() ? `<shared-observations>\n${sharedRaw}\n</shared-observations>` : "", sessionRaw.trim() ? `<session-observations>\n${sessionRaw}\n</session-observations>` : ""].filter(Boolean).join("\n\n");
-
-    let section: string[];
-    if (!combined.trim()) section = ["<!-- Memento: no observations yet -->"];
-    else if (combined.length > MAX_CHARS) {
-      api.logger.warn("Memento: observations.md exceeds 50,000-token soft limit, injecting truncated version");
-      section = ["<memento-observations>", combined.slice(0, MAX_CHARS), "</memento-observations>"];
-    } else section = ["<memento-observations>", combined, "</memento-observations>"];
-
-    cachedObservationPromptSections.set(cacheKey, section);
-    return section;
+    return { appendSystemContext: sections.join("\n") };
   });
 }
