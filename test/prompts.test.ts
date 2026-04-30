@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import { OBSERVER_SYSTEM_PROMPT, buildObserverUserPrompt } from "../src/observer/prompts.js";
 
 describe("OBSERVER_SYSTEM_PROMPT", () => {
-  it("uses type-based scope routing instead of LLM scope classification", () => {
+  it("uses session tagging plus type-based routing", () => {
     expect(OBSERVER_SYSTEM_PROMPT).not.toContain("dc:scope=");
-    expect(OBSERVER_SYSTEM_PROMPT).not.toContain("dc:session=");
-    expect(OBSERVER_SYSTEM_PROMPT).not.toContain("Scope Classification Rules");
+    expect(OBSERVER_SYSTEM_PROMPT).toContain("dc:session=session-key");
+    expect(OBSERVER_SYSTEM_PROMPT).toContain("Use the exact session key from the `[session=...]` marker");
+    expect(OBSERVER_SYSTEM_PROMPT).not.toContain("even for shared observations");
     expect(OBSERVER_SYSTEM_PROMPT).toContain("dc:type=rule");
     expect(OBSERVER_SYSTEM_PROMPT).toContain("MUST be exactly one of these values");
     expect(OBSERVER_SYSTEM_PROMPT).toContain("Do not invent new type values");
@@ -28,9 +29,13 @@ describe("buildObserverUserPrompt", () => {
       ["[13:26] [session=user:chat:abc] USER: Hello"],
       "",
       new Date("2026-04-07T11:26:00.000Z"),
+      ["user:chat:abc"],
       "UTC"
     );
 
     expect(prompt).toContain("Today is 2026-04-07 (Tuesday), current time is 11:26.");
+    expect(prompt).toContain("Valid session keys for this batch:");
+    expect(prompt).toContain("- user:chat:abc");
+    expect(prompt).toContain("Every bullet must include dc:session with one of the keys above.");
   });
 });
