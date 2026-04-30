@@ -1,6 +1,6 @@
 {
   "name": "@makeseabed/memento",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Observational memory for OpenClaw.",
   "main": "./dist/index.js",
   "author": "Lenny <lenny@seabed.to>",
